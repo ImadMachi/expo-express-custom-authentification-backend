@@ -4,16 +4,11 @@ import mailerService from "../services/mailerService";
 import { HydratedDocument } from "mongoose";
 import { IUser } from "../models/User";
 
-interface RegisterUserRequestBody {
-	name: string;
-	email: string;
-	password: string;
-}
-export const registerUser = async (req: Request<{}, {}, RegisterUserRequestBody>, res: Response) => {
+export const registerUser = async (req: Request, res: Response) => {
 	try {
-		const { name, email, password } = req.body;
+		const { firstName, lastName, email, password } = req.body;
 
-		const user = await userService.createUser(name, email, password);
+		const user = await userService.createUser(firstName, lastName, email, password);
 
 		await mailerService.sendVerificationEmail(user.email, user.verificationCode);
 
@@ -24,15 +19,10 @@ export const registerUser = async (req: Request<{}, {}, RegisterUserRequestBody>
 	}
 };
 
-interface LoginUserRequestBody {
-	email: string;
-	password: string;
-}
-export const loginUser = async (req: Request<{}, {}, LoginUserRequestBody>, res: Response) => {
+export const loginUser = async (req: Request, res: Response) => {
 	try {
 		const { email, password } = req.body;
 		const { user, token } = await userService.signinUser(email, password);
-		console.log(token);
 
 		res.status(200).json({ user, token });
 	} catch (error) {
@@ -41,13 +31,10 @@ export const loginUser = async (req: Request<{}, {}, LoginUserRequestBody>, res:
 	}
 };
 
-interface VerifyUserRequestBody {
-	code: string;
-}
-export const verifyUser = async (req: Request<{}, {}, VerifyUserRequestBody>, res: Response) => {
+export const verifyUser = async (req: Request, res: Response) => {
 	try {
-		const { code } = req.body;
-		const { user, token } = await userService.verifyUser(code);
+		const { verificationCode } = req.body;
+		const { user, token } = await userService.verifyUser(verificationCode);
 
 		res.status(200).json({ user, token });
 	} catch (error) {
@@ -56,10 +43,7 @@ export const verifyUser = async (req: Request<{}, {}, VerifyUserRequestBody>, re
 	}
 };
 
-interface ForgotPasswordBody {
-	email: string;
-}
-export const forgotPassword = async (req: Request<{}, {}, ForgotPasswordBody>, res: Response) => {
+export const forgotPassword = async (req: Request, res: Response) => {
 	try {
 		const { email } = req.body;
 
@@ -74,10 +58,7 @@ export const forgotPassword = async (req: Request<{}, {}, ForgotPasswordBody>, r
 	}
 };
 
-interface ResetPasswordbody {
-	newPassword: string;
-}
-export const resetPassword = async (req: Request<{}, {}, ResetPasswordbody>, res: Response) => {
+export const resetPassword = async (req: Request, res: Response) => {
 	try {
 		const { newPassword } = req.body;
 		const { _id } = req.user as HydratedDocument<IUser>;

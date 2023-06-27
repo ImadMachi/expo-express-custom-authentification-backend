@@ -12,10 +12,10 @@ class UserService {
 		this.userModel = userModel;
 	}
 
-	async createUser(name: string, email: string, password: string) {
-		const user: HydratedDocument<IUser> = new this.userModel({ name, email, password });
+	async createUser(firstName: string, lastName: string, email: string, password: string) {
+		const user: HydratedDocument<IUser> = new this.userModel({ firstName, lastName, email, password });
 
-		return this.generateVerificationCode({ email: user.email });
+		return this.generateVerificationCode({ providedUser: user });
 	}
 
 	async signinUser(email: string, password: string) {
@@ -30,6 +30,8 @@ class UserService {
 		}
 
 		const isMatch = bcrypt.compare(password, user.password);
+
+		console.log(password);
 
 		if (!isMatch) {
 			throw new Error("Incorrect password");

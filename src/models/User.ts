@@ -2,7 +2,8 @@ import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
 export interface IUser {
-	name: string;
+	firstName: string;
+	lastName: string;
 	email: string;
 	password: string;
 	verified: boolean;
@@ -11,7 +12,11 @@ export interface IUser {
 }
 
 const userSchema = new mongoose.Schema<IUser>({
-	name: {
+	firstName: {
+		type: String,
+		required: true,
+	},
+	lastName: {
 		type: String,
 		required: true,
 	},
