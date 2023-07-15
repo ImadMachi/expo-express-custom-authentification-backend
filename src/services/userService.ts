@@ -3,7 +3,9 @@ import jwt from "jsonwebtoken";
 
 import User, { IUser } from "../models/User";
 import generateCode from "../utils/generateCode";
-import { HydratedDocument, Types } from "mongoose";
+import { Types } from "mongoose";
+import createHttpError from "http-errors";
+import httpStatus from "../utils/httpStatus";
 
 class UserService {
 	private userModel: typeof User;
@@ -13,28 +15,26 @@ class UserService {
 	}
 
 	async createUser(firstName: string, lastName: string, email: string, password: string) {
-		const user: HydratedDocument<IUser> = new this.userModel({ firstName, lastName, email, password });
+		const user: IUser = new this.userModel({ firstName, lastName, email, password });
 
-		return this.generateVerificationCode({ providedUser: user });
+		return this.generateVerificationCode(user.email);
 	}
 
 	async signinUser(email: string, password: string) {
 		const user = await this.userModel.findOne({ email });
 
 		if (!user) {
-			throw new Error("User not found");
-		}
-
-		if (!user.verified) {
-			throw new Error("User not verified");
+			throw createHttpError(httpStatus.UNAUTHORIZED, "Invalid email or password");
 		}
 
 		const isMatch = bcrypt.compare(password, user.password);
 
-		console.log(password);
-
 		if (!isMatch) {
-			throw new Error("Incorrect password");
+			throw createHttpError(httpStatus.UNAUTHORIZED, "Invalid email or password");
+		}
+
+		if (!user.verified) {
+			throw createHttpError(httpStatus.FORBIDDEN, "User not verified");
 		}
 
 		const token = this.generateAuthToken(user._id);
@@ -46,11 +46,11 @@ class UserService {
 		const user = await this.userModel.findOne({ verificationCode: code });
 
 		if (!user) {
-			throw new Error("Invalid verification code");
+			throw createHttpError(httpStatus.BAD_REQUEST, "Invalid verification code");
 		}
 
 		if (user.verificationCodeExpiresAt < new Date()) {
-			throw new Error("Verification code expired");
+			throw createHttpError(httpStatus.UNAUTHORIZED, "Verification code expired");
 		}
 
 		user.verified = true;
@@ -67,15 +67,10 @@ class UserService {
 		return token;
 	}
 
-	async generateVerificationCode({ email, providedUser }: { email?: string; providedUser?: HydratedDocument<IUser> }) {
-		let user: HydratedDocument<IUser> | null;
-		if (providedUser) {
-			user = providedUser;
-		} else {
-			user = await this.userModel.findOne({ email });
-		}
+	async generateVerificationCode(email: string) {
+		const user = await this.userModel.findOne({ email });
 		if (!user) {
-			throw new Error("User not found");
+			throw createHttpError(httpStatus.NOT_FOUND, "User not found");
 		}
 
 		const verificationCode = generateCode();
@@ -91,7 +86,7 @@ class UserService {
 		const user = await this.userModel.findById(_id);
 
 		if (!user) {
-			throw new Error("User not found");
+			throw createHttpError(httpStatus.NOT_FOUND, "User not found");
 		}
 
 		user.password = newPassword;

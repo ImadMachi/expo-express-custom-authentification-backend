@@ -1,7 +1,12 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
-export interface IUser {
+export enum UserRole {
+	USER = "user",
+	ADMIN = "admin",
+}
+
+export interface IUser extends mongoose.Document {
 	firstName: string;
 	lastName: string;
 	email: string;
@@ -9,6 +14,7 @@ export interface IUser {
 	verified: boolean;
 	verificationCode: string;
 	verificationCodeExpiresAt: Date;
+	role: UserRole;
 }
 
 const userSchema = new mongoose.Schema<IUser>({
@@ -40,6 +46,11 @@ const userSchema = new mongoose.Schema<IUser>({
 		type: Date,
 		required: true,
 	},
+	role: {
+		type: String,
+		enum: ["user", "admin"] as UserRole[],
+		default: "user" as UserRole,
+	},
 });
 
 userSchema.methods.toJSON = function () {
@@ -58,7 +69,6 @@ userSchema.pre("save", async function (next) {
 		user.password = hashedPassword;
 		next();
 	} catch (error) {
-		console.log("Error hashing password:", error);
 		next(error as Error);
 	}
 });

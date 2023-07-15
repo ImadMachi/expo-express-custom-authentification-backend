@@ -1,10 +1,12 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import userService from "../services/userService";
 import mailerService from "../services/mailerService";
-import { HydratedDocument } from "mongoose";
-import { IUser } from "../models/User";
+import abilities from "../auth/abilities";
+import { subject } from "@casl/ability";
+import createHttpError from "http-errors";
+import httpStatus from "../utils/httpStatus";
 
-export const registerUser = async (req: Request, res: Response) => {
+export const registerUser = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { firstName, lastName, email, password } = req.body;
 
@@ -12,61 +14,61 @@ export const registerUser = async (req: Request, res: Response) => {
 
 		await mailerService.sendVerificationEmail(user.email, user.verificationCode);
 
-		res.status(200).json({ message: "User registered successfully", success: true });
+		res.status(200).json({ message: "User registered successfully" });
 	} catch (error) {
-		console.error("Error registering user:", error);
-		res.status(500).json({ message: "Error registering user" });
+		next(error);
 	}
 };
 
-export const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { email, password } = req.body;
 		const { user, token } = await userService.signinUser(email, password);
 
 		res.status(200).json({ user, token });
 	} catch (error) {
-		console.error("Error logging in user:", error);
-		res.status(500).json({ message: "Error logging in user" });
+		next(error);
 	}
 };
 
-export const verifyUser = async (req: Request, res: Response) => {
+export const verifyUser = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { verificationCode } = req.body;
 		const { user, token } = await userService.verifyUser(verificationCode);
 
 		res.status(200).json({ user, token });
 	} catch (error) {
-		console.error("Error verifying email:", error);
-		res.status(500).json({ message: "Error verifying email" });
+		next(error);
 	}
 };
 
-export const forgotPassword = async (req: Request, res: Response) => {
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { email } = req.body;
 
-		const user = await userService.generateVerificationCode({ email });
+		const user = await userService.generateVerificationCode(email);
 
 		await mailerService.sendVerificationEmail(user.email, user.verificationCode);
 
 		res.status(200).json({ message: "Password reset email sent" });
 	} catch (error) {
-		console.error("Error sending password reset email:", error);
-		res.status(500).json({ message: "Error sending password reset email" });
+		next(error);
 	}
 };
 
-export const resetPassword = async (req: Request, res: Response) => {
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { newPassword } = req.body;
-		const { _id } = req.user as HydratedDocument<IUser>;
-		const { user } = await userService.resetPassword(_id, newPassword);
+		const user = req.user;
 
-		res.status(200).json({ message: "Password resetted successfully", user });
+		if (!user || !abilities(user).can("update", subject("User", user))) {
+			throw createHttpError(httpStatus.UNAUTHORIZED, "Unauthorized");
+		}
+
+		await userService.resetPassword(user._id, newPassword);
+
+		res.status(200).json({ user });
 	} catch (error) {
-		console.error("Error resetting password:", error);
-		res.status(500).json({ message: "Error resetting password" });
+		next(error);
 	}
 };
