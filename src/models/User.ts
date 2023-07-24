@@ -11,7 +11,7 @@ export interface IUser extends mongoose.Document {
 	lastName: string;
 	email: string;
 	password: string;
-	verified: boolean;
+	isVerified: boolean;
 	verificationCode: string;
 	verificationCodeExpiresAt: Date;
 	role: UserRole;
@@ -29,12 +29,13 @@ const userSchema = new mongoose.Schema<IUser>({
 	email: {
 		type: String,
 		required: true,
+		unique: true,
 	},
 	password: {
 		type: String,
 		required: true,
 	},
-	verified: {
+	isVerified: {
 		type: Boolean,
 		default: false,
 	},
@@ -44,7 +45,6 @@ const userSchema = new mongoose.Schema<IUser>({
 	},
 	verificationCodeExpiresAt: {
 		type: Date,
-		required: true,
 	},
 	role: {
 		type: String,

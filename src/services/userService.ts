@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-import User, { IUser } from "../models/User";
+import User, { IUser, UserRole } from "../models/User";
 import generateCode from "../utils/generateCode";
 import { Types } from "mongoose";
 import createHttpError from "http-errors";
@@ -15,8 +15,14 @@ class UserService {
 	}
 
 	async createUser(firstName: string, lastName: string, email: string, password: string) {
-		const user: IUser = new this.userModel({ firstName, lastName, email, password });
+		const existingUser = await this.userModel.findOne({ email });
 
+		if (existingUser) {
+			throw createHttpError(httpStatus.BAD_REQUEST, "Email already in use");
+		}
+
+		const user: IUser = new this.userModel({ firstName, lastName, email, password });
+		await user.save();
 		return this.generateVerificationCode(user.email);
 	}
 
@@ -33,17 +39,13 @@ class UserService {
 			throw createHttpError(httpStatus.UNAUTHORIZED, "Invalid email or password");
 		}
 
-		if (!user.verified) {
-			throw createHttpError(httpStatus.FORBIDDEN, "User not verified");
-		}
-
-		const token = this.generateAuthToken(user._id);
+		const token = this.generateAuthToken(user._id, user.role, user.isVerified);
 
 		return { user, token };
 	}
 
-	async verifyUser(code: string) {
-		const user = await this.userModel.findOne({ verificationCode: code });
+	async verifyUser(code: string, email: string) {
+		const user = await this.userModel.findOne({ email, verificationCode: code });
 
 		if (!user) {
 			throw createHttpError(httpStatus.BAD_REQUEST, "Invalid verification code");
@@ -53,24 +55,25 @@ class UserService {
 			throw createHttpError(httpStatus.UNAUTHORIZED, "Verification code expired");
 		}
 
-		user.verified = true;
+		user.isVerified = true;
 		user.verificationCode = "";
-		const token = this.generateAuthToken(user._id);
+		user.verificationCodeExpiresAt = new Date();
+		const token = this.generateAuthToken(user._id, user.role, user.isVerified);
 
 		await user.save();
 
 		return { user, token };
 	}
 
-	generateAuthToken(userId: Types.ObjectId) {
-		const token = jwt.sign({ _id: userId }, process.env.JWT_SECRET as string, { expiresIn: "30d" });
+	generateAuthToken(userId: Types.ObjectId, role: UserRole, isVerified: boolean) {
+		const token = jwt.sign({ _id: userId, role, isVerified }, process.env.JWT_SECRET as string, { expiresIn: "30d" });
 		return token;
 	}
 
 	async generateVerificationCode(email: string) {
 		const user = await this.userModel.findOne({ email });
 		if (!user) {
-			throw createHttpError(httpStatus.NOT_FOUND, "User not found");
+			throw createHttpError(httpStatus.NOT_FOUND, "No user with this email was found");
 		}
 
 		const verificationCode = generateCode();
@@ -94,6 +97,15 @@ class UserService {
 		await user.save();
 
 		return { user };
+	}
+
+	async getCurrentUserById(_id: Types.ObjectId) {
+		const user = await this.userModel.findById(_id);
+
+		if (!user) {
+			throw createHttpError(httpStatus.NOT_FOUND, "User not found");
+		}
+		return user;
 	}
 }
 

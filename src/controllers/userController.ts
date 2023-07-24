@@ -14,7 +14,7 @@ export const registerUser = async (req: Request, res: Response, next: NextFuncti
 
 		await mailerService.sendVerificationEmail(user.email, user.verificationCode);
 
-		res.status(200).json({ message: "User registered successfully" });
+		res.status(httpStatus.CREATED).json({ email: user.email });
 	} catch (error) {
 		next(error);
 	}
@@ -25,7 +25,7 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
 		const { email, password } = req.body;
 		const { user, token } = await userService.signinUser(email, password);
 
-		res.status(200).json({ user, token });
+		res.status(httpStatus.OK).json({ user, token });
 	} catch (error) {
 		next(error);
 	}
@@ -33,24 +33,23 @@ export const loginUser = async (req: Request, res: Response, next: NextFunction)
 
 export const verifyUser = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { verificationCode } = req.body;
-		const { user, token } = await userService.verifyUser(verificationCode);
+		const { verificationCode, email } = req.body;
+		const { user, token } = await userService.verifyUser(verificationCode, email);
 
-		res.status(200).json({ user, token });
+		res.status(httpStatus.OK).json({ user, token });
 	} catch (error) {
 		next(error);
 	}
 };
 
-export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+export const sendVerificationCode = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const { email } = req.body;
-
 		const user = await userService.generateVerificationCode(email);
 
 		await mailerService.sendVerificationEmail(user.email, user.verificationCode);
 
-		res.status(200).json({ message: "Password reset email sent" });
+		res.sendStatus(httpStatus.OK);
 	} catch (error) {
 		next(error);
 	}
@@ -67,7 +66,22 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
 
 		await userService.resetPassword(user._id, newPassword);
 
-		res.status(200).json({ user });
+		res.sendStatus(httpStatus.OK);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const getCurrentUser = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const user = req.user;
+
+		if (!user || !abilities(user).can("read", subject("User", user))) {
+			throw createHttpError(httpStatus.UNAUTHORIZED, "Unauthorized");
+		}
+
+		const currentUser = await userService.getCurrentUserById(user._id);
+		res.status(httpStatus.OK).json(currentUser);
 	} catch (error) {
 		next(error);
 	}

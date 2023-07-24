@@ -12,12 +12,17 @@ const auth = (req: Request, res: Response, next: NextFunction) => {
 		throw createHttpError(httpStatus.UNAUTHORIZED, "Access denied. No token provided");
 	}
 
-	jwt.verify(token, process.env.JWT_SECRET as string, (err, user) => {
+	jwt.verify(token, process.env.JWT_SECRET as string, (err, data) => {
+		const user = data as IUser;
 		if (err || !user) {
-			return res.sendStatus(403);
+			return res.status(401).json(createHttpError(httpStatus.UNAUTHORIZED, "Invalid token"));
 		}
 
-		req.user = user as IUser;
+		if (!user.isVerified) {
+			return res.status(403).json(createHttpError(httpStatus.FORBIDDEN, "User is not verified"));
+		}
+
+		req.user = user;
 		next();
 	});
 };
