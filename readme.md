@@ -1,8 +1,7 @@
 ## Requirements:
 
 1. Install mongodb: https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-6.0.6-signed.msi
-2. Install compass: https://downloads.mongodb.com/compass/mongodb-compass-1.38.0-win32-x64.msi
-3. Install maildev: `npm i -g maildev`
+2. Install maildev: `npm i -g maildev`
 
 ## Usage
 
